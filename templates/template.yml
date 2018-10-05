@@ -1,0 +1,251 @@
+---
+resource_types:
+- name: bbl-state-resource
+  type: docker-image
+  source:
+    repository: cfinfrastructure/bbl-state-resource
+
+- name: gcs
+  type: docker-image
+  source:
+    repository: frodenas/gcs-resource
+
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
+- name: bosh-deployment
+  type: docker-image
+  source:
+    repository: cloudfoundry/bosh-deployment-resource
+
+- name: bosh-errand
+  type: docker-image
+  source:
+    repository: pcfkubo/bosh2-errand-resource
+    tag: v0.1.3-dev
+
+resources:
+- name: bbl-state
+  type: bbl-state-resource
+  source:
+    bucket: kubo-pipeline-store
+    iaas: gcp
+    gcp_region: us-central1
+    gcp_service_account_key: ((gcs-json-key))
+
+- name: git-kubo-ci
+  type: git
+  source:
+    uri: git@github.com:pivotal-cf-experimental/kubo-ci.git
+    branch: master
+    private_key: ((git-ssh-key.private_key))
+
+- name: git-kubo-drats
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry-incubator/kubo-disaster-recovery-acceptance-tests
+    branch: master
+    private_key: ((git-ssh-key.private_key))
+
+- name: git-kubo-deployment
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry-incubator/kubo-deployment.git
+    branch: develop
+    private_key: ((git-ssh-key.private_key))
+    ignore_paths:
+    - 'LICENSE'
+    - 'NOTICE'
+
+- name: git-kubo-release
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry-incubator/kubo-release.git
+    branch: develop
+    private_key: ((git-ssh-key.private_key))
+    ignore_paths:
+    - '*.md'
+    - 'LICENSE'
+    - 'NOTICE'
+
+- name: slackers
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry-incubator/cfcr-home.git
+    private_key: ((git-ssh-key.private_key))
+    paths:
+    - 'slackers'
+
+- name: slack-alert
+  type: slack-notification
+  source:
+    url: ((build-alert-slack-url))
+
+- name: cfcr-deployment
+  type: bosh-deployment
+  source:
+    deployment: ci-service
+    skip_check: true
+
+- name: run-apply-addons-errand
+  type: bosh-errand
+  source:
+    deployment: ci-service
+    skip_check: true
+
+- name: run-smoke-tests-errand
+  type: bosh-errand
+  source:
+    deployment: ci-service
+    skip_check: true
+
+- name: gcs-bosh-creds
+  type: gcs
+  source:
+    json_key: ((gcs-json-key))
+    bucket: kubo-pipeline-store
+    versioned_file: bosh/bbr/ci/creds.yml
+
+- name: gcs-bosh-source-file
+  type: gcs
+  source:
+    json_key: ((gcs-json-key))
+    bucket: kubo-pipeline-store
+    versioned_file: bosh/bbr/ci/source.json
+
+- name: gcs-kubeconfig
+  type: gcs
+  source:
+    json_key: ((gcs-json-key))
+    bucket: kubo-pipeline-store
+    versioned_file: k8s-bbr/config
+
+- name: gcs-kubo-release-tarball-untested
+  type: gcs
+  source:
+    json_key: ((gcs-json-key))
+    bucket: kubo-pipeline-store
+    regexp: dev-builds/kubo-release-(.*).tgz
+
+- name: gcs-kubo-deployment-tarball-untested
+  type: gcs
+  source:
+    json_key: ((gcs-json-key))
+    bucket: kubo-pipeline-store
+    regexp: dev-builds/kubo-deployment-(.*).tgz
+jobs:
+- name: deploy-k8s
+  plan:
+  - aggregate:
+    - get: slackers
+    - get: git-kubo-ci
+    - get: git-kubo-deployment
+    - get: git-kubo-release
+    - get: gcs-bosh-state
+    - get: gcs-bosh-creds
+    - get: gcs-kubo-release-tarball-untested
+    - get: gcs-kubo-deployment-tarball-untested
+    - get: gcs-bosh-source-file
+    - get: stemcell
+      resource: stemcell-gcp
+  - put: cfcr-deployment
+    params:
+      manifest: git-kubo-deployment/manifests/cfcr.yml
+      cleanup: true
+      no_redact: true
+      ops_files: [ ]
+      vars_files: [ ]
+      stemcells:
+      - stemcell/stemcell.tgz
+      releases:
+      - gcs-kubo-release-tarball-untested/*.tgz
+      source_file: gcs-bosh-source-file
+      vars:
+    tags: ((worker_tag))
+  - task: update-kubeconfig
+    tags: ((worker_tag))
+    file: git-kubo-ci/tasks/update-kubeconfig.yml
+  - put: run-apply-addons-errand
+    params:
+      name: apply-addons
+      keep_alive: true
+      source_file: gcs-bosh-source-file
+    tags: ((worker_tag))
+  - put: run-smoke-tests-errand
+    params:
+      name: smoke-tests
+      keep_alive: true
+      source_file: gcs-bosh-source-file
+    tags: ((worker_tag))
+  - aggregate:
+    - put: gcs-kubeconfig
+      params:
+        file: kubeconfig/config
+
+- name: run-k8s-bbr-tests
+  plan:
+  - aggregate:
+    - get: slackers
+    - get: git-kubo-drats
+    - get: git-kubo-ci
+    - get: gcs-bosh-source-file
+      passed: [ 'deploy-k8s' ]
+    - get: gcs-kubeconfig
+      passed: [ 'deploy-k8s' ]
+    - get: git-kubo-deployment
+      passed: [ 'deploy-k8s' ]
+    - get: gcs-bosh-state
+      passed: [ 'deploy-k8s' ]
+    - get: gcs-bosh-creds
+      passed: [ 'deploy-k8s' ]
+    - get: git-kubo-release
+      passed: [ 'deploy-k8s' ]
+    - get: gcs-kubo-release-tarball-untested
+      passed: [ 'deploy-k8s' ]
+    - get: gcs-kubo-deployment-tarball-untested
+      passed: [ 'deploy-k8s' ]
+    #TODO: - get: bbr-cli
+    - task: bbr-drats
+      tags: ((worker_tag))
+      file: git-kubo-drats/ci/task.yml
+      input_mapping:
+        bbl-state: 
+  # - task: bbr-tests
+  #   tags: ((worker_tag))
+  #   file: git-kubo-ci/tasks/run-k8s-bbr-tests.yml
+  #   params:
+  #     DEPLOYMENT_NAME: ci-service
+  #     ENABLE_OSS_ONLY_TESTS: true
+  #     ENABLE_PERSISTENT_VOLUME_TESTS: true
+  #     ENABLE_MULTI_AZ_TESTS: true
+  #     ENABLE_K8S_LBS_TESTS: true
+
+- name: destroy-k8s
+  serial_groups: [main]
+  plan:
+  - aggregate:
+    - get: slackers
+    - get: git-kubo-ci
+    - get: gcs-bosh-creds
+    - get: git-kubo-deployment
+      passed: ["run-k8s-bbr-tests"]
+      trigger: true
+    - get: git-kubo-release
+      passed: ["run-k8s-bbr-tests"]
+      trigger: true
+    - get: gcs-kubeconfig
+      passed: ["run-k8s-bbr-tests"]
+      version: every
+      trigger: true
+    - get: gcs-kubo-release-tarball-untested
+      passed: ["run-k8s-bbr-tests"]
+    - get: gcs-kubo-deployment-tarball-untested
+      passed: ["run-k8s-bbr-tests"]
+  - task: get-bosh-source-json-from-lock
+    file: git-kubo-ci/tasks/get-bosh-source-json-from-lock.yml
+  - task: destroy-k8s
+    tags: ((worker_tag))
+    file: git-kubo-ci/tasks/destroy-k8s-instance.yml
