@@ -7,11 +7,21 @@
       name: bosh-google-kvm-ubuntu-xenial-go_agent
 
 - type: replace
-  path: /jobs/name=deploy-k8s/plan/put=cfcr-deployment/params/ops_files/-
-  value: git-kubo-deployment/manifests/ops-files/iaas/gcp/cloud-provider.yml
+  path: /jobs/name=deploy-k8s/plan/put=cfcr-deployment/params/vars/network?
+  value: bbl-env-baikal-2018-09-12t09-01z-network
+- type: replace
+  path: /jobs/name=deploy-k8s/plan/put=cfcr-deployment/params/vars/project_id?
+  value: cf-pcf-kubo
+- type: replace
+  path: /jobs/name=deploy-k8s/plan/put=cfcr-deployment/params/vars/director_name?
+  value: bosh-bbl-env-baikal-2018-09-12t09-01z
+- type: replace
+  path: /jobs/name=deploy-k8s/plan/put=cfcr-deployment/params/vars/deployment_name?
+  value: cfcr
+
 - type: replace
   path: /jobs/name=deploy-k8s/plan/put=cfcr-deployment/params/ops_files/-
-  value: git-kubo-deployment/manifests/ops-files/iaas/gcp/add-subnetwork-for-internal-load-balancer.yml
+  value: git-kubo-deployment/manifests/ops-files/iaas/gcp/cloud-provider.yml
 - type: replace
   path: /jobs/name=deploy-k8s/plan/put=cfcr-deployment/params/ops_files/-
   value: git-kubo-deployment/manifests/ops-files/use-vm-extensions.yml

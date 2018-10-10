@@ -33,13 +33,13 @@ extract_pipeline_name() {
 }
 
 main() {
-  local pipeline_name pipeline_config env iaas templated_pipeline
+  local pipeline_name pipeline_config env iaas
   if [ "$#" == "0" ]; then
     print_usage
     exit 1
   fi
   templated_pipeline=$(mktemp)
-  trap '$templated_pipeline' EXIT
+  trap 'rm -f ${templated_pipeline}' EXIT
   pipeline_name=$(extract_pipeline_name "${1}")
   iaas="${2}"
   local pipeline_properties="${ci_dir}/configs/${pipeline_name}.yml"
