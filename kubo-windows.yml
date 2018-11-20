@@ -1,5 +1,37 @@
+<<<<<<< HEAD
 groups: []
 resources:
+=======
+resource_types:
+- name: gcs
+  type: docker-image
+  source:
+    repository: frodenas/gcs-resource
+
+- name: bosh-deployment
+  type: docker-image
+  source:
+    repository: cloudfoundry/bosh-deployment-resource
+
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
+- name: bosh-errand
+  type: docker-image
+  source:
+    repository: pcfkubo/bosh2-errand-resource
+    tag: v0.1.3-dev
+resources:
+- name: run-smoke-tests-errand
+  type: bosh-errand
+  source:
+    deployment: ci-service
+    skip_check: true
+
+>>>>>>> Create kubo-windows pipelines
 - name: stemcell-windows
   type: gcs
   source:
@@ -12,6 +44,7 @@ resources:
   source:
     name: bosh-vsphere-esxi-ubuntu-xenial-go_agent
 
+<<<<<<< HEAD
 - name: source-json
   type: gcs
   source:
@@ -19,17 +52,24 @@ resources:
     json_key: ((gcs-json-key))
     versioned_file: source.json
 
+=======
+>>>>>>> Create kubo-windows pipelines
 - name: cfcr-deployment
   type: bosh-deployment
   source:
     deployment: ci-service
     skip_check: true
 
+<<<<<<< HEAD
 - name: gcs-load-balancer-vars
+=======
+- name: gcs-bosh-state
+>>>>>>> Create kubo-windows pipelines
   type: gcs
   source:
     bucket: kubo-pipeline-store
     json_key: ((gcs-json-key))
+<<<<<<< HEAD
     versioned_file: load-balancer-vars.yml
 
 - name: run-apply-addons-errand
@@ -43,6 +83,16 @@ resources:
   source:
     deployment: ci-service
     skip_check: true
+=======
+    versioned_file: bosh/state.json
+
+- name: source-json
+  type: gcs
+  source:
+    bucket: kubo-pipeline-store
+    json_key: ((gcs-json-key))
+    versioned_file: source.json
+>>>>>>> Create kubo-windows pipelines
 
 - name: kubo-lock
   type: pool
@@ -52,11 +102,16 @@ resources:
     private_key: ((git-ssh-key.private_key))
     uri: git@github.com:pivotal-cf-experimental/kubo-locks.git
 
+<<<<<<< HEAD
 - name: gcs-bosh-state
+=======
+- name: gcs-load-balancer-vars
+>>>>>>> Create kubo-windows pipelines
   type: gcs
   source:
     bucket: kubo-pipeline-store
     json_key: ((gcs-json-key))
+<<<<<<< HEAD
     versioned_file: bosh/state.json
 
 - name: slackers
@@ -71,6 +126,9 @@ resources:
   type: slack-notification
   source:
    url: ((build-alert-slack-url))
+=======
+    versioned_file: load-balancer-vars.yml
+>>>>>>> Create kubo-windows pipelines
 
 - name: gcs-bosh-creds
   type: gcs
@@ -79,6 +137,7 @@ resources:
     json_key: ((gcs-json-key))
     versioned_file: bosh/creds.yml
 
+<<<<<<< HEAD
 - name: gcs-kubeconfig
   type: gcs
   source:
@@ -91,10 +150,36 @@ resources:
   source:
     uri: https://github.com/pivotal-k8s/kubo-ci
     branch: master
+=======
+- name: git-kubo-deployment
+  type: git
+  source:
+    branch: develop
+    uri: https://github.com/pivotal-k8s/kubo-deployment
+
+- name: git-kubo-ci
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/pivotal-k8s/kubo-ci
+
+- name: gcs-kubeconfig
+  type: gcs
+  source:
+    bucket: kubo-pipeline-store
+    json_key: ((gcs-json-key))
+    versioned_file: k8s/config
+
+- name: slack-alert
+  type: slack-notification
+  source:
+    url: ((build-alert-slack-url))
+>>>>>>> Create kubo-windows pipelines
 
 - name: git-kubo-release
   type: git
   source:
+<<<<<<< HEAD
     uri: https://github.com/pivotal-k8s/kubo-release
     branch: hostgw2
 
@@ -103,6 +188,24 @@ resources:
   source:
     uri: https://github.com/pivotal-k8s/kubo-deployment
     branch: develop
+=======
+    branch: hostgw2
+    uri: https://github.com/pivotal-k8s/kubo-release
+
+- name: run-apply-addons-errand
+  type: bosh-errand
+  source:
+    deployment: ci-service
+    skip_check: true
+
+- name: slackers
+  type: git
+  source:
+    paths:
+    - slackers
+    private_key: ((git-ssh-key.private_key))
+    uri: git@github.com:cloudfoundry-incubator/cfcr-home.git
+>>>>>>> Create kubo-windows pipelines
 
 jobs:
 - name: claim-lock
@@ -127,10 +230,17 @@ jobs:
     - get: git-kubo-ci
     - get: slackers
     - get: kubo-lock
+<<<<<<< HEAD
       trigger: true
       version: every
       passed:
       - claim-lock
+=======
+      passed:
+      - claim-lock
+      trigger: true
+      version: every
+>>>>>>> Create kubo-windows pipelines
   - task: install
     file: git-kubo-ci/tasks/install-bosh.yml
     params:
@@ -157,10 +267,17 @@ jobs:
       params:
         file: source-json/source.json
   - task: update-cloud-config-with-vm-ext
+<<<<<<< HEAD
     tags:
     - vsphere-lb
     file: git-kubo-ci/tasks/update-cloud-config-with-vm-ext.yml
   on_failure: &on_failure_alert
+=======
+    file: git-kubo-ci/tasks/update-cloud-config-with-vm-ext.yml
+    tags:
+    - vsphere-lb
+  on_failure:
+>>>>>>> Create kubo-windows pipelines
     do:
     - task: configure-slack-notification
       file: git-kubo-ci/tasks/configure-slack-notification.yml
@@ -200,6 +317,11 @@ jobs:
     - get: stemcell-windows
     - get: stemcell-xenial
     - get: slackers
+<<<<<<< HEAD
+=======
+  - task: get_director_uuid
+    file: git-kubo-ci/tasks/get_director_uuid.yml
+>>>>>>> Create kubo-windows pipelines
   - task: create-release
     file: git-kubo-ci/tasks/etcd/create-release.yml
     input_mapping:
@@ -222,6 +344,7 @@ jobs:
       - git-kubo-deployment/manifests/ops-files/windows/add-worker.yml
       - git-kubo-deployment/manifests/ops-files/windows/scale-to-one-az.yml
       - git-kubo-deployment/manifests/ops-files/windows/use-hostgw.yml
+      - git-kubo-deployment/manifests/ops-files/windows/use-runtime-config-bosh-dns.yml
       releases:
       - kubo-release/release.tgz
       source_file: source-json/source.json
@@ -234,6 +357,7 @@ jobs:
       vars_files:
       - gcs-load-balancer-vars/load-balancer-vars.yml
       - kubo-lock/metadata
+      - director_uuid/var.yml
     tags:
     - vsphere-lb
   - put: run-apply-addons-errand
