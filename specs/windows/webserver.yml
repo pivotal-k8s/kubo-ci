@@ -10,12 +10,12 @@ spec:
     beta.kubernetes.io/os: windows
   tolerations:
   - key: "windows"
-    operator: "Equal"
-    value: "1803"
+    operator: "Exists"
     effect: "NoSchedule"
   restartPolicy: Always
   containers:
-  - image: microsoft/windowsservercore:1803
+  - image: mcr.microsoft.com/windows/servercore
+    imagePullPolicy: IfNotPresent
     name: webserver
     ports:
     - name: http
